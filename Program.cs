@@ -1,4 +1,6 @@
 ﻿using BlockChain;
+using System.Transactions;
+
 namespace BlockChain
 {
     public class Program
@@ -20,17 +22,21 @@ namespace BlockChain
                 FullName = "Reza Ahmadi"
             };
 
-            var firstTrancaction = new Transaction(10, aliAlaviAccount.FullName, abbasHojjatiAccount.FullName);
-            var secondTrancaction = new Transaction(50, rezaAhmadiAccount.FullName, abbasHojjatiAccount.FullName);
-            var thirdTrancaction = new Transaction(20, abbasHojjatiAccount.FullName, rezaAhmadiAccount.FullName);
+
+            var contract = new Contract(initialDifficulty: 2);
+
+            var firstTrancaction = new Transaction(10,null,recieverAddress: abbasHojjatiAccount.FullName,TransactionType.Charging);
+            contract.AddTransaction(firstTrancaction);
+
+            var secondTrancaction = new Transaction(50, null, recieverAddress: aliAlaviAccount.FullName,TransactionType.Charging);
+            contract.AddTransaction(secondTrancaction);
+            contract.Mine();
 
 
+            var thirdTrancaction = new Transaction(20, senderAddress: aliAlaviAccount.FullName, recieverAddress: abbasHojjatiAccount.FullName, TransactionType.Transferring);
+            contract.AddTransaction(thirdTrancaction);
 
-            var contract = new Contract();
-            contract.AddTransactionAndMineBlock(firstTrancaction);
-            contract.AddTransactionAndMineBlock(secondTrancaction);
-            contract.AddTransactionAndMineBlock(thirdTrancaction);
-
+            contract.Mine();
             Console.WriteLine(contract.ToString());
 
             //secondTrancaction.Amount = 100;

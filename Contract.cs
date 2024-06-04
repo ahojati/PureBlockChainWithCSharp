@@ -1,18 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace BlockChain
 {
     public class Contract
     {
-        public Contract() 
+        public Contract(int initialDifficulty=0) 
         {
             _blocks =new List<Block>();
+            _pendingTransactions= new List<Transaction>();
+            CurrentDifficulty=initialDifficulty;
         }
 
+        public int CurrentDifficulty { get; set; }
         private readonly List<Block> _blocks;
 
         public IReadOnlyList<Block> Blocks
@@ -22,8 +27,43 @@ namespace BlockChain
                 return _blocks.AsReadOnly();
             }
         }
+        private System.Collections.Generic.List<Transaction> _pendingTransactions;
 
-        public void AddTransactionAndMineBlock(Transaction transaction)
+        /// <summary>
+        /// Memory Pool = MemPool
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<Transaction> PendingTransactions
+        {
+            get
+            {
+                return _pendingTransactions.AsReadOnly();
+            }
+        }
+        public void AddTransaction(Transaction transaction)
+        {
+            
+            switch (transaction.TransactionType)
+            {
+                case TransactionType.Withdrawing:
+                case TransactionType.Transferring:
+                    {
+                        int senderBalance =
+                            GetAccountBalance(accountAddress: transaction.SenderAddress!);
+
+                        if (senderBalance < transaction.Amount)
+                        {
+                            return;
+                        }
+
+                        break;
+                    }
+            }
+
+            _pendingTransactions.Add(transaction);
+        }
+
+        
+        private Block GetNewBlock()
         {
             Block? parentBlock = null;
             int blockNumber = Blocks.Count;
@@ -35,12 +75,11 @@ namespace BlockChain
             }
 
             var newBlock =
-                new Block(blockNumber,transaction,parentBlock?.MixHash);
+                new Block(blockNumber: blockNumber,difficulty: CurrentDifficulty, parentHash: parentBlock?.MixHash);
 
-            newBlock.Mine();
-
-            _blocks.Add(newBlock);
+            return newBlock;
         }
+        
         public int GetAccountBalance(string accountAddress)
         {
             if (IsValid() == false)
@@ -51,20 +90,43 @@ namespace BlockChain
 
             foreach (var block in Blocks)
             {
-                if (block.Transaction.RecieverAddress == accountAddress)
+                foreach (var transaction in block.Transactions)
                 {
-                    balance +=
-                        block.Transaction.Amount;
-                }
+                    if (transaction.RecieverAddress == accountAddress)
+                    {
+                        balance +=
+                            transaction.Amount;
+                    }
 
-                if (block.Transaction.SenderAddress == accountAddress)
-                {
-                    balance -=
-                        block.Transaction.Amount;
+                    if (transaction.SenderAddress == accountAddress)
+                    {
+                        balance -=
+                            transaction.Amount;
+                    }
                 }
+                
             }
 
             return balance;
+        }
+        public Block Mine()
+        {
+            var block =
+                GetNewBlock();
+
+            foreach (var transaction in PendingTransactions)
+            {
+                block.AddTransaction(transaction);
+            }
+
+            _pendingTransactions =
+                new System.Collections.Generic.List<Transaction>();
+
+            block.Mine();
+
+            _blocks.Add(block);
+
+            return block;
         }
         public bool IsValid()
         {
